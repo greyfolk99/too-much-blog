@@ -1,0 +1,113 @@
+# for development
+services:
+  client:
+    build:
+      context: ./client
+    env_file: .env
+    environment:
+      PGUSER: ${DATABASE_USERNAME}
+      PGPASSWORD: ${DATABASE_PASSWORD}
+      PGDATABASE: ${DATABASE_NAME}
+      PGPORT: ${DATABASE_PORT}
+    volumes:
+      - ./client:/app
+    ports:
+      - "3000:3000"
+    networks:
+      - test-app-network
+    depends_on:
+      - db
+      - redis
+
+  chat-server:
+    image: elixir
+    env_file: .env
+    environment:
+      PGUSER: ${DATABASE_USERNAME}
+      PGPASSWORD: ${DATABASE_PASSWORD}
+      PGDATABASE: ${DATABASE_NAME}
+      PGPORT: ${DATABASE_PORT}
+    volumes:
+      - ./chat:/app
+    ports:
+      - "4000:4000"
+    networks:
+      - test-app-network
+    depends_on:
+      - db
+      - redis
+
+  api-server:
+    build: ./api-server
+    image: api-server-test-app:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_CLIENT: ${DATABASE_CLIENT}
+      DATABASE_HOST: db
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PORT: ${DATABASE_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      NODE_ENV: ${NODE_ENV}
+    volumes:
+      - ./api-server/config:/opt/app/config
+      - ./api-server/src:/opt/app/src
+      - ./api-server/package.json:/opt/package.json
+      - ./api-server/yarn.lock:/opt/yarn.lock
+      - ./.env:/opt/app/.env
+      - ./api-server/public/uploads:/opt/app/public/uploads
+    ports:
+      - '1337:1337'
+    networks:
+      - test-app-network
+    depends_on:
+      - db
+      - redis
+
+  admin-server:
+    image: adminer
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - '9090:8080'
+    environment:
+      - ADMINER_DEFAULT_SERVER=db
+    networks:
+      - test-app-network
+    depends_on:
+      - db
+      - redis
+  db:
+    container_name: api-serverDB
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file: .env
+    image: postgres:14.5-alpine
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - ${DATABASE_PORT}:5432
+    volumes:
+      - /data/postgres:/var/lib/postgresql/data
+    networks:
+      - test-app-network
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis:/data
+    networks:
+      - test-app-network
+
+networks:
+  test-app-network:
+    driver: bridge
+
