@@ -1,4 +1,4 @@
 .env
 redis
 db
-.idea
+/.idea/
